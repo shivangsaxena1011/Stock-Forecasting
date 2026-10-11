@@ -298,7 +298,50 @@ def test_fetch_history_missing_yfinance_raises_actionable_import_error():
 
 
 # =====================================================================
-# 7. Live Market Data Integration Tests (Opt-in marker)
+# 7. Engine Validation & Fallback Robustness Tests
+# =====================================================================
+
+def test_train_and_forecast_validates_train_fraction():
+    df = pd.DataFrame({"Close": np.linspace(100, 200, 160)})
+    with pytest.raises(ValueError, match="train_fraction must be between 0.5 and 1.0"):
+        train_and_forecast(df, "TEST", lookback=10, train_fraction=0.4)
+    with pytest.raises(ValueError, match="train_fraction must be between 0.5 and 1.0"):
+        train_and_forecast(df, "TEST", lookback=10, train_fraction=1.0)
+
+
+def test_train_and_forecast_validates_non_finite_values():
+    vals = np.linspace(100, 200, 160)
+    vals[50] = np.nan
+    df = pd.DataFrame({"Close": vals})
+    # Since dropna is used, dropna removes nan, but if inf is present:
+    vals_inf = np.linspace(100, 200, 160)
+    vals_inf[20] = np.inf
+    df_inf = pd.DataFrame({"Close": vals_inf})
+    with pytest.raises(ValueError, match="non-finite values"):
+        train_and_forecast(df_inf, "TEST", lookback=10)
+
+
+def test_train_and_forecast_validates_lookback_and_epochs():
+    df = pd.DataFrame({"Close": np.linspace(100, 200, 160)})
+    with pytest.raises(ValueError, match="lookback must be between 5 and 200"):
+        train_and_forecast(df, "TEST", lookback=3)
+    with pytest.raises(ValueError, match="epochs must be between 1 and 200"):
+        train_and_forecast(df, "TEST", lookback=10, epochs=0)
+
+
+def test_train_and_forecast_tf_unexpected_error_not_masked():
+    """Ensure genuine programming or model errors in TensorFlow are raised, not swallowed as fallback."""
+    fake_tf = mock.MagicMock()
+    with mock.patch("src.stock_forecaster.build_tf_lstm_model", side_effect=RuntimeError("Custom TensorFlow Architecture Bug")):
+        with mock.patch.dict("sys.modules", {"tensorflow": fake_tf}):
+            df = pd.DataFrame({"Close": np.linspace(100, 200, 160)})
+            with pytest.raises(RuntimeError, match="Custom TensorFlow Architecture Bug"):
+                train_and_forecast(df, "TEST", lookback=10, force_numpy_engine=False)
+
+
+
+# =====================================================================
+# 8. Live Market Data Integration Tests (Opt-in marker)
 # =====================================================================
 
 @pytest.mark.integration

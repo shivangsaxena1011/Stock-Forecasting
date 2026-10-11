@@ -532,15 +532,28 @@ def train_and_forecast(
         raise ValueError("history DataFrame must contain a 'Close' column")
 
     data = history[["Close"]].dropna().copy().sort_index()
+
+    # Explicit input validation
+    if not np.all(np.isfinite(data["Close"].to_numpy())):
+        raise ValueError("Closing price history contains non-finite values (inf or nan).")
+
+    if not (0.5 <= train_fraction < 1.0):
+        raise ValueError(f"train_fraction must be between 0.5 and 1.0 (exclusive); got {train_fraction}.")
+
+    if lookback < 5 or lookback > 200:
+        raise ValueError(f"lookback must be between 5 and 200 trading sessions; got {lookback}.")
+
+    if epochs < 1 or epochs > 200:
+        raise ValueError(f"epochs must be between 1 and 200; got {epochs}.")
+
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be a positive integer; got {batch_size}.")
+
     if len(data) < max(150, lookback + 30):
         raise ValueError(
             f"Not enough observations ({len(data)}) for training, validation and testing. "
             f"Need at least {max(150, lookback + 30)} rows."
         )
-    if lookback < 5:
-        raise ValueError("lookback should be at least 5 trading sessions.")
-    if epochs < 1 or batch_size < 1:
-        raise ValueError("epochs and batch_size must be positive integers.")
 
     # Reserve the final chronological section for evaluation
     split_at = int(len(data) * train_fraction)
@@ -574,36 +587,54 @@ def train_and_forecast(
     engine_type = "tensorflow"
 
     if not force_numpy_engine:
+        # Check if TensorFlow is available and loadable on this host/OS
+        tf = None
         try:
             import tensorflow as tf
-            model = build_tf_lstm_model(lookback)
-            callbacks = [
-                tf.keras.callbacks.EarlyStopping(
-                    monitor="val_loss", patience=patience, restore_best_weights=True
-                ),
-                tf.keras.callbacks.ReduceLROnPlateau(
-                    monitor="val_loss", patience=max(2, patience // 2), factor=0.5, min_lr=1e-5
-                ),
-            ]
-            model.fit(
-                X_fit,
-                y_fit,
-                validation_data=(X_val, y_val),
-                epochs=epochs,
-                batch_size=batch_size,
-                shuffle=False,
-                callbacks=callbacks,
-                verbose=0,
+        except (ImportError, OSError) as env_err:
+            logger.info(
+                "TensorFlow unavailable or native binaries restricted by environment policy: %s. "
+                "Selecting Pure NumPy LSTM engine.",
+                env_err,
             )
-            pred_scaled = model.predict(X_test, verbose=0).reshape(-1, 1)
-            next_window = scaled_all[-lookback:].reshape(1, lookback, 1)
-            next_scaled = model.predict(next_window, verbose=0).reshape(-1, 1)
-        except Exception as exc:
-            logger.warning(
-                f"TensorFlow execution unavailable or blocked by system policy ({exc}). "
-                "Falling back to pure NumPy LSTM analytical engine."
-            )
-            model = None
+            tf = None
+
+        if tf is not None:
+            try:
+                model = build_tf_lstm_model(lookback)
+                callbacks = [
+                    tf.keras.callbacks.EarlyStopping(
+                        monitor="val_loss", patience=patience, restore_best_weights=True
+                    ),
+                    tf.keras.callbacks.ReduceLROnPlateau(
+                        monitor="val_loss", patience=max(2, patience // 2), factor=0.5, min_lr=1e-5
+                    ),
+                ]
+                model.fit(
+                    X_fit,
+                    y_fit,
+                    validation_data=(X_val, y_val),
+                    epochs=epochs,
+                    batch_size=batch_size,
+                    shuffle=False,
+                    callbacks=callbacks,
+                    verbose=0,
+                )
+                pred_scaled = model.predict(X_test, verbose=0).reshape(-1, 1)
+                next_window = scaled_all[-lookback:].reshape(1, lookback, 1)
+                next_scaled = model.predict(next_window, verbose=0).reshape(-1, 1)
+                logger.info("Successfully trained model using TensorFlow / Keras engine.")
+            except (ImportError, OSError) as os_err:
+                logger.warning(
+                    "TensorFlow runtime execution blocked by system policy: %s. "
+                    "Falling back to pure NumPy LSTM analytical engine.",
+                    os_err,
+                )
+                model = None
+            except Exception as train_err:
+                # Genuine model shape, coding, or algorithmic errors must not be masked as environment limitations
+                logger.error("TensorFlow training failed with unexpected error: %s", train_err, exc_info=True)
+                raise
 
     if model is None:
         engine_type = "pure_numpy"
@@ -629,7 +660,7 @@ def train_and_forecast(
     baseline = scaler.inverse_transform(baseline_scaled.reshape(-1, 1)).reshape(-1)
 
     test_frame = data.iloc[target_indices[test_mask]].copy()
-    next_price = float(scaler.inverse_transform(next_scaled)[0, 0])
+    next_price = float(np.asarray(scaler.inverse_transform(next_scaled)).reshape(-1)[0])
 
     return ForecastResult(
         ticker=validate_ticker(ticker),

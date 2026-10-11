@@ -87,21 +87,21 @@ Or double-click `run_notebook.bat`. Open `notebooks/Stock_Price_Prediction_LSTM.
 
 ## Running Automated Tests
 
-Run the offline verification suite (23 deterministic unit and gradient tests, independent of internet):
+By default, running `pytest` executes the full **offline verification suite** (35 deterministic unit, gradient, validation, and API tests, completely independent of the internet):
 ```powershell
-python -m pytest -m "not integration" -v
+python -m pytest -v
 ```
 
-All 23 unit tests execute offline in ~1.5 seconds and verify sequence slicing, chronological splitting, ticker validation, metric calculations, edge cases, data leak prevention, mock downloads, missing dependency handling, numerical gradient checks ($\text{rel\_err} < 2\times 10^{-5}$), and weight restoration.
+All 35 offline tests execute in ~1 second and verify sequence slicing, chronological splitting, ticker validation, metric calculations, edge cases, data leak prevention, mock downloads, missing dependency handling, numerical gradient checks ($\text{rel\_err} < 2\times 10^{-5}$), early stopping weight restoration, FastAPI endpoint validation, rate limiting, and concurrency control.
 
 To execute the live Yahoo Finance integration test (requires active internet access):
 ```powershell
 python -m pytest -m "integration" -v
 ```
 
-Or run all 24 tests combined:
+To run all 36 tests (offline unit tests + live market data integration):
 ```powershell
-python -m pytest -v
+python -m pytest -m "" -v
 ```
 
 ---
@@ -134,12 +134,16 @@ The application will start, install dependencies via `pip`, and serve the respon
 Stock Price/
 ├── app.py                     # Responsive Streamlit dashboard application
 ├── api.py                     # FastAPI REST backend service
-├── requirements.txt           # Pinned dependency requirements
+├── requirements.txt           # Pinned production dependency requirements (Streamlit Cloud)
+├── requirements-dev.txt       # Development & testing requirements (pytest, Jupyter, FastAPI)
 ├── README.md                  # Windows 11 setup, execution & deployment guide
+├── LICENSE                    # MIT Open Source License
+├── .env.example               # Environment variable template
 ├── run_dashboard.bat          # Windows 11 one-click dashboard launcher
 ├── run_api.bat                # Windows 11 one-click FastAPI launcher
 ├── run_notebook.bat           # Windows 11 one-click Jupyter launcher
 ├── .gitignore                 # Git ignore rules for clean distributions
+├── .github/workflows/ci.yml   # Automated continuous integration workflow
 ├── src/
 │   ├── __init__.py            # Package initializer
 │   └── stock_forecaster.py    # Core forecasting engine (Data, Scaler, TF & NumPy LSTMs, Metrics)
@@ -148,7 +152,8 @@ Stock Price/
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py            # Pytest test configuration
-│   └── test_stock_forecaster.py # 24 automated unit and integration tests (23 offline, 1 opt-in live)
+│   ├── test_stock_forecaster.py # 28 automated unit and integration tests
+│   └── test_api.py            # 8 automated REST API endpoint and validation tests
 ├── docs/
 │   ├── AUDIT_REPORT.md        # Comprehensive vulnerability and audit report
 │   ├── TEST_REPORT.md         # Detailed test execution results and logs
@@ -157,6 +162,7 @@ Stock Price/
 ├── outputs/
 │   ├── .gitkeep
 │   ├── TCS_NS_test_predictions.csv       # Verified holdout predictions export (matching report)
+│   ├── RELIANCE_NS_test_predictions.csv  # Verified holdout predictions export
 │   └── screenshots/                      # 9 real rendered screenshots across viewports & results
 ├── data/                      # Local data placeholder (.gitkeep)
 └── models/                    # Serialized models placeholder (.gitkeep)
