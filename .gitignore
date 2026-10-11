@@ -1,0 +1,42 @@
+# Byte-compiled / optimized / virtual environment
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Pytest & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Output files & local artifacts (preserve directory structure via .gitkeep)
+outputs/*
+!outputs/.gitkeep
+!outputs/screenshots/
+!outputs/*_test_predictions.csv
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
+
+# Temporary, backup, and local test files
+*.zip
+original_backup/
+backup_audit*/
+backup*/
+test_clean_env/
+test_prod_env/
+temp_unzip/
+*.log
+

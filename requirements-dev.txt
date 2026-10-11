@@ -1,0 +1,15 @@
+# Development, testing, and Jupyter research dependencies
+# Install with: pip install -r requirements-dev.txt
+-r requirements.txt
+
+# Testing framework
+pytest>=8.0,<9.0
+
+# Research notebook environment
+jupyterlab>=4.2,<5.0
+ipykernel>=6.29,<7.0
+
+# Optional headless REST API backend
+fastapi>=0.110,<1.0
+uvicorn>=0.28,<1.0
+pydantic>=2.6,<3.0

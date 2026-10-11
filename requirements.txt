@@ -1,0 +1,13 @@
+# Core production runtime stack for Streamlit Community Cloud
+# Entry point: app.py
+numpy>=1.26,<2.2
+pandas>=2.1,<3.0
+matplotlib>=3.8,<4.0
+plotly>=5.20,<7.0
+yfinance>=0.2.54,<2.0
+streamlit>=1.40,<2.0
+
+# Optional deep learning engine:
+# When installed on Linux / Cloud / unconstrained environments, TensorFlow/Keras runs automatically.
+# On resource-constrained or policy-locked environments, the system falls back seamlessly to the
+# built-in analytical PureNumPyLSTM engine without breaking dependencies.
