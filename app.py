@@ -23,7 +23,7 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Responsive container adjustments */
+    /* Responsive container and typography adjustments */
     @media (max-width: 768px) {
         .block-container {
             padding-top: 1rem !important;
@@ -38,12 +38,28 @@ st.markdown(
             margin-bottom: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
+        div[data-testid="stMetricLabel"] {
+            font-size: 0.85rem !important;
+            word-break: break-word !important;
+            white-space: normal !important;
+        }
         div[data-testid="stMetricValue"] {
-            font-size: 1.4rem !important;
+            font-size: 1.3rem !important;
+            word-break: break-word !important;
         }
         .stButton button {
             min-height: 48px;
             font-size: 1.05rem;
+        }
+    }
+    @media (min-width: 769px) and (max-width: 1200px) {
+        div[data-testid="stMetricLabel"] {
+            font-size: 0.8rem !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+        }
+        div[data-testid="stMetricValue"] {
+            font-size: 1.25rem !important;
         }
     }
     .badge-info {
@@ -55,6 +71,7 @@ st.markdown(
         font-size: 0.85rem;
         font-weight: 500;
         margin-right: 6px;
+        margin-bottom: 4px;
     }
     .status-box {
         background-color: #f0fdf4;
@@ -320,7 +337,14 @@ if result is not None:
         hovermode="x unified",
         height=450,
         margin=dict(l=10, r=10, t=30, b=10),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0,
+            font=dict(size=11),
+        ),
     )
     st.plotly_chart(fig_eval, use_container_width=True)
     
