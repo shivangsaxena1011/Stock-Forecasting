@@ -479,6 +479,11 @@ class PureNumPyLSTM:
                         if best_weights is not None:
                             self.W, self.b, self.W_d1, self.b_d1, self.W_d2, self.b_d2 = best_weights
                         break
+
+        # If training finished all epochs without early-stopping trigger, restore best validation weights
+        if X_val is not None and y_val is not None and best_weights is not None:
+            self.W, self.b, self.W_d1, self.b_d1, self.W_d2, self.b_d2 = best_weights
+
         return self
 
 

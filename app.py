@@ -77,15 +77,14 @@ st.markdown(
 )
 st.caption("Educational time-series forecasting lab • Indian NSE & US markets • Zero fabricated data")
 
-# Caching market data to avoid re-downloading on every Streamlit interaction (e.g. slider moves)
+# Caching market data to avoid re-downloading on every Streamlit interaction (TTL: 1 hour)
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_cached_history(ticker: str, period: str) -> pd.DataFrame:
     return fetch_history(ticker, period=period)
 
-# Caching model training results based on key parameters to avoid unnecessary retraining
-@st.cache_data(show_spinner=False)
-def run_cached_forecast(ticker: str, period: str, lookback: int, train_fraction: float, epochs: int):
-    history = get_cached_history(ticker, period=period)
+# Caching model training with data-bound hashing (history is passed directly) and 1-hour TTL
+@st.cache_data(ttl=3600, show_spinner=False)
+def run_cached_forecast(history: pd.DataFrame, ticker: str, lookback: int, train_fraction: float, epochs: int):
     result = train_and_forecast(
         history,
         ticker,
@@ -93,23 +92,34 @@ def run_cached_forecast(ticker: str, period: str, lookback: int, train_fraction:
         train_fraction=train_fraction,
         epochs=epochs,
     )
-    return history, result
+    return result
 
 with st.sidebar:
     st.header("⚙️ Forecast Settings")
     
     labels = list(DEFAULT_TICKERS.keys())
-    selected_label = st.selectbox(
+
+    # Widget synchronization: Changing the popular stocks dropdown updates the ticker input
+    if "ticker_input" not in st.session_state:
+        st.session_state["ticker_input"] = DEFAULT_TICKERS[labels[0]]
+
+    def on_popular_stock_change():
+        selected = st.session_state.get("popular_stock_select")
+        if selected in DEFAULT_TICKERS:
+            st.session_state["ticker_input"] = DEFAULT_TICKERS[selected]
+
+    st.selectbox(
         "Popular Stocks",
         labels,
         index=0,
+        key="popular_stock_select",
+        on_change=on_popular_stock_change,
         help="Select a benchmark Indian NSE or US stock, or type your own below."
     )
-    ticker_default = DEFAULT_TICKERS[selected_label]
     
     ticker_input = st.text_input(
         "Yahoo Finance Ticker Symbol",
-        value=ticker_default,
+        key="ticker_input",
         help="e.g. RELIANCE.NS, TCS.NS, INFY.NS, HDFCBANK.NS, AAPL, MSFT, NVDA"
     )
     
@@ -139,6 +149,11 @@ st.info(
 )
 
 if run:
+    # Issue B: Invalidate previous forecast immediately so failed runs never display stale results
+    st.session_state["forecast_result"] = None
+    st.session_state["history"] = None
+    st.session_state["ticker"] = None
+
     try:
         clean_ticker = validate_ticker(ticker_input)
         with st.spinner(f"📥 Downloading genuine historical market data for {clean_ticker}…"):
@@ -152,14 +167,15 @@ if run:
         )
         
         with st.spinner("🧠 Training LSTM and evaluating on chronological holdout…"):
-            history, result = run_cached_forecast(
+            result = run_cached_forecast(
+                history,
                 clean_ticker,
-                period=period,
                 lookback=lookback,
                 train_fraction=train_fraction,
                 epochs=epochs,
             )
             
+        # Store successful result atomically
         st.session_state["forecast_result"] = result
         st.session_state["history"] = history
         st.session_state["ticker"] = clean_ticker

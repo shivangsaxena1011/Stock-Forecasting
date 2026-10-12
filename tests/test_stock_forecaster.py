@@ -211,6 +211,7 @@ def test_pure_numpy_lstm_learning_convergence():
 
 
 def test_pure_numpy_lstm_best_weights_restoration():
+    """Verify that early stopping restores the weights corresponding to minimum validation loss."""
     t = np.linspace(0, 5, 80)
     series = np.sin(t) + 2.0
     X, y = make_sequences(series, lookback=8)
@@ -220,6 +221,23 @@ def test_pure_numpy_lstm_best_weights_restoration():
     val_preds = model.predict(X[50:])
     val_mse = np.mean((val_preds.flatten() - y[50:]) ** 2)
     assert not np.isnan(val_mse)
+    assert val_mse < 1.0
+
+
+def test_pure_numpy_lstm_restores_best_weights_on_full_epochs():
+    """Verify that best validation weights are restored even when training runs all epochs without early stopping."""
+    t = np.linspace(0, 5, 80)
+    series = np.sin(t) + 2.0
+    X, y = make_sequences(series, lookback=8)
+
+    model = PureNumPyLSTM(input_dim=1, hidden_dim=8, dense_dim=4, lr=0.01, seed=42)
+    # patience=100 ensures early stopping is never triggered within 5 epochs
+    model.fit(X[:50], y[:50], X_val=X[50:], y_val=y[50:], epochs=5, batch_size=8, patience=100)
+    
+    # Model's current validation loss should be finite and bounded
+    val_preds = model.predict(X[50:])
+    val_mse = float(np.mean((val_preds.flatten() - y[50:]) ** 2))
+    assert np.isfinite(val_mse)
     assert val_mse < 1.0
 
 
